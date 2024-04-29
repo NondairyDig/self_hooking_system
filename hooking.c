@@ -1,10 +1,40 @@
 #include <linux/types.h>
 
+/*
+
+Use trampoline with the original instructions and jmp to the rest of the original function.
+
+*/
 struct self_hook
 {
     void *original;
-    void *function;
+    void *hook_func;
+
+	unsigned char original_instructions[10];
 };
+
+
+static void disable_page_protection(void) {
+    unsigned long value;
+    asm volatile("mov %%cr0, %0" : "=r" (value));
+
+    if (!(value & 0x00010000))
+        return;
+
+    asm volatile("mov %0, %%cr0" : : "r" (value & ~0x00010000));
+}
+
+
+static void enable_page_protection(void) {
+    unsigned long value;
+    asm volatile("mov %%cr0, %0" : "=r" (value));
+
+    if ((value & 0x00010000))
+        return;
+
+    asm volatile("mov %0, %%cr0" : : "r" (value | 0x00010000));
+}
+
 
 static int self_hook_function(struct self_hook *hook){
 	// Assume 'target_function' is the address of the function you want to hook
@@ -31,6 +61,24 @@ static int self_hook_function(struct self_hook *hook){
 	    0xFF, 0xE0                    // jmp rax
 	};
 
+
+	// Save the original instructions
+    memcpy(original_instructions, target_function_ptr, 5);
+
+    // Create the trampoline function
+    trampoline = kmalloc(8, GFP_KERNEL);
+    memcpy(trampoline, original_instructions, 5);
+    ((unsigned char *)trampoline)[5] = 0xE9; // JMP opcode
+    int relative_address = (int)target_function_ptr - (int)trampoline - 5;
+    memcpy(&((unsigned char *)trampoline)[6], &relative_address, 4);
+
+    // Replace the first instruction of the target function with a jump to the hook function
+    unsigned char jmp_instruction[5] = {0xE9, 0x00, 0x00, 0x00, 0x00};
+    relative_address = (int)hook_function_ptr - (int)target_function_ptr - 5;
+    memcpy(&jmp_instruction[1], &relative_address, 4);
+    memcpy(target_function_ptr, jmp_instruction, 5);
+
+
 	// Disable write protection on the page containing 'target_function'
 	// and replace the first few bytes with 'jmp_instruction'
 	return 1;
@@ -40,7 +88,8 @@ static int self_unhook_function(struct ftrace_hook *hook){
 
 }
 
-static void my_hook_function(void) {
+
+static void my_hook_function(struct hook *hook) {
     // Perform your custom actions here
 
     // Call the original function
@@ -50,4 +99,3 @@ static void my_hook_function(void) {
         "call *%rax\n"
         "pop %rax\n"
     );
-}
