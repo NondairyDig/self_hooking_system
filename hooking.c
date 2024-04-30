@@ -3,6 +3,11 @@
 /*
 
 Use trampoline with the original instructions and jmp to the rest of the original function.
+- original function first few instructions are replaced with a jmp to the hook function
+- hook function executed
+- if the original function is needed, then the trampoline will be called; the trampoline contains the original instructions with a jmp to the rest of the original function
+- when unhooking, the trampoline will be released and the original instructions will return.
+
 
 */
 struct self_hook
@@ -10,6 +15,7 @@ struct self_hook
     void *original;
     void *hook_func;
 
+    unsigned char trampoline[10];
 	unsigned char original_instructions[10];
 };
 
@@ -99,3 +105,7 @@ static void my_hook_function(struct hook *hook) {
         "call *%rax\n"
         "pop %rax\n"
     );
+}
+
+void generate_trampoline(struct ftrace_hook *hook){
+}
