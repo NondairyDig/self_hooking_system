@@ -1,0 +1,9 @@
+.vscode
+.self_hooking_system**
+self_hooking_system.mod**
+self_hooking_system.ko**
+self_hooking_system.o**
+.modules**
+.Module**
+modules.**
+Module.**
