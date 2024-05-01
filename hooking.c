@@ -12,10 +12,10 @@ Use trampoline with the original instructions and jmp to the rest of the origina
 */
 struct self_hook
 {
-    void *original;
+    void *target;
     void *hook_func;
 
-    unsigned char trampoline[10];
+    unsigned char * trampoline;
 	unsigned char original_instructions[10];
 };
 
@@ -69,7 +69,7 @@ static int self_hook_function(struct self_hook *hook){
 
 
 	// Save the original instructions
-    memcpy(original_instructions, target_function_ptr, 5);
+    memcpy(hook->original_instructions, hook->target, 5);
 
     // Create the trampoline function
     trampoline = kmalloc(8, GFP_KERNEL);
@@ -97,6 +97,8 @@ static int self_unhook_function(struct ftrace_hook *hook){
 
 static void my_hook_function(struct hook *hook) {
     // Perform your custom actions here
+	
+
 
     // Call the original function
     asm volatile (
