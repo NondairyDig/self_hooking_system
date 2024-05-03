@@ -2,7 +2,7 @@
 
 This system provides a mechanism for hooking functions in the Linux kernel. It allows you to intercept calls to a target function and redirect them to a hook function. This can be useful for monitoring or modifying the behavior of the kernel.
 An alternative to ftrace/kprobes or modifying the syscall table.
-
+Includes an example of usage on kill syscall, everything is still basic, can change into a full hooking system.
 ## Features
 
 - **Function Hooking**: Intercept calls to a target function and redirect them to a hook function.

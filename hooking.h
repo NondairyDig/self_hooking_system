@@ -1,5 +1,3 @@
-#include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/kprobes.h> // to resolve kernel symbols
 #include <linux/version.h>
 
