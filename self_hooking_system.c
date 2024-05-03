@@ -14,17 +14,15 @@ struct self_hook hook;
 
 
 static int hook_kill(struct pt_regs *regs){
-    //int sig = regs->si;
-//
-//
-    //if(sig != 1){
-    //    orig_kill = (ptregs_t)hook.trampoline;
-    //    return orig_kill(regs);
-    //}
-    //pr_info("Blocked kill 1");
+    int sig = regs->si;
 
-    // This commented line produced an error for the NX bit on the memory because kmalloc allocates
-    // unexecutable memory.
+
+    if(sig != 1){
+        ret_t ret;
+        ret = trampoline(&hook, regs);
+        return ret.i;
+    }
+    pr_info("Blocked kill 1\n");
     return 0;
 }
 

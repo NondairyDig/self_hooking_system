@@ -25,9 +25,16 @@ struct self_hook
     void *target;
     void *hook_func;
 
-    unsigned char *trampoline;
-	unsigned char original_instructions[10];
+	unsigned char original_instructions[5];
 };
+typedef union {
+    int i;
+    long l;
+    float f;
+    double d;
+    long double ld;
+    void* p;
+} ret_t;
 
 static void disable_page_protection(void) {
     unsigned long value;
@@ -57,18 +64,10 @@ static int self_hook_function(struct self_hook *hook){
 	// Save the original instructions
     memcpy(hook->original_instructions, hook->target, 5);
 
-    // Create the trampoline for executing original function from hook function
-    unsigned char *trampoline = (unsigned char *)kmalloc(8, GFP_KERNEL);
-    memcpy(trampoline, hook->original_instructions, 5);
-    ((unsigned char *)trampoline)[5] = 0xE9; // JMP opcode
-    unsigned long relative_address = (unsigned long)hook->target - (unsigned long)trampoline - 5;
-    memcpy(&((unsigned char *)trampoline)[6], &relative_address, 4);
-    
-    hook->trampoline = trampoline;
 
     // Replace the first instruction of the target function with a jump to the hook function
     unsigned char jmp_instruction[5] = {0xE9, 0x00, 0x00, 0x00, 0x00};
-    relative_address = (unsigned long)hook->hook_func - (unsigned long)hook->target - 5;
+    unsigned long relative_address = (unsigned long)hook->hook_func - (unsigned long)hook->target - 5;
     memcpy(&jmp_instruction[1], &relative_address, 4);
     memcpy(hook->target, jmp_instruction, 5);
 
@@ -82,7 +81,6 @@ static int self_unhook_function(struct self_hook *hook){
     disable_page_protection();
 
     memcpy(hook->target, hook->original_instructions, 5);
-    kfree(hook->trampoline);
 
     enable_page_protection();
     return 1;
@@ -117,41 +115,28 @@ static int resolve_hook_address(struct self_hook *hook, const char *symbol)
 }
 
 
+ret_t trampoline(struct self_hook *hook, void* args) {
+    ret_t returnValue;
 
-// Allocating Executable Memory
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/gfp.h>
-#include <linux/mm.h>
+    // Insert the original prologue
+    asm volatile (
+        "push %%rax\n"
+        "mov %0, %%rax\n"
+        "mov (%%rax), %%rax\n"
+        "pop %%rax\n"
+        :
+        : "r" (hook->original_instructions)
+        : "%rax"
+    );
 
-void *allocate_executable_memory(size_t size)
-{
-    void *mem;
-    struct page *page;
-    unsigned int order = get_order(size);
+    // Call the rest of the original function and get the return value
+    asm volatile (
+        "call *%1\n"
+        "mov %%rax, %0\n"
+        : "=r" (returnValue.ld)  // Store the return value as the largest value possible
+        : "r" (hook->target + sizeof(hook->original_instructions))
+        : "%rax"
+    );
 
-    page = alloc_pages(GFP_KERNEL, order);
-    if (!page)
-        return NULL;
-
-    mem = page_address(page);
-    if (!mem) {
-        __free_pages(page, order);
-        return NULL;
-    }
-
-    if (set_memory_x((unsigned long)mem, 1 << order) != 0) {
-        __free_pages(page, order);
-        return NULL;
-    }
-
-    return mem;
-}
-
-void free_executable_memory(void *mem, size_t size)
-{
-    unsigned int order = get_order(size);
-
-    set_memory_nx((unsigned long)mem, 1 << order);
-    __free_pages(virt_to_page(mem), order);
+    return returnValue;
 }
