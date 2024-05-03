@@ -1,25 +1,11 @@
-#include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/fs.h>
-#include <linux/uaccess.h>
-#include <linux/gfp.h>
 #include <linux/kprobes.h> // to resolve kernel symbols
 #include <linux/version.h>
-#include <linux/slab.h>
-/*
-
-Use trampoline with the original instructions and jmp to the rest of the original function.
-- original function first few instructions are replaced with a jmp to the hook function
-- hook function executed
-- if the original function is needed, then the trampoline will be called; the trampoline contains the original instructions with a jmp to the rest of the original function
-- when unhooking, the trampoline will be released and the original instructions will return.
 
 
-*/
-typedef asmlinkage long (*ptregs_t)(const struct pt_regs *regs); // define type for syscalls functions, can be long even for int ret
-ptregs_t orig_kill;
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *); // the kallsyms_lookup_name function prototype pointer
+
 struct self_hook
 {
     void *target;
@@ -27,7 +13,8 @@ struct self_hook
 
 	unsigned char original_instructions[5];
 };
-typedef union {
+
+typedef union { // A generic return type to handle return values of various functions.
     int i;
     long l;
     float f;
@@ -35,6 +22,7 @@ typedef union {
     long double ld;
     void* p;
 } ret_t;
+
 
 static void disable_page_protection(void) {
     unsigned long value;
@@ -64,7 +52,6 @@ static int self_hook_function(struct self_hook *hook){
 	// Save the original instructions
     memcpy(hook->original_instructions, hook->target, 5);
 
-
     // Replace the first instruction of the target function with a jump to the hook function
     unsigned char jmp_instruction[5] = {0xE9, 0x00, 0x00, 0x00, 0x00};
     unsigned long relative_address = (unsigned long)hook->hook_func - (unsigned long)hook->target - 5;
@@ -75,6 +62,7 @@ static int self_hook_function(struct self_hook *hook){
 
 	return 1;
 }
+
 
 static int self_unhook_function(struct self_hook *hook){
 
@@ -90,17 +78,17 @@ static int self_unhook_function(struct self_hook *hook){
 static int resolve_hook_address(struct self_hook *hook, const char *symbol)
 {
     static struct kprobe kp = {
-    	.symbol_name = "kallsyms_lookup_name" // ready the kbrobe to probe the kallsyms_lookup_name function
+    	.symbol_name = "kallsyms_lookup_name" // Ready the kbrobe to probe the kallsyms_lookup_name function
     };
 
     #if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
         kallsyms_lookup_name_t kallsyms_lookup_name_new;
 		register_kprobe(&kp);
-        kallsyms_lookup_name_new = (kallsyms_lookup_name_t)kp.addr; // get address of function
-        hook->target = (unsigned long *)kallsyms_lookup_name_new(symbol); // get starting point of syscall table in memory
+        kallsyms_lookup_name_new = (kallsyms_lookup_name_t)kp.addr; // Get address of function
+        hook->target = (unsigned long *)kallsyms_lookup_name_new(symbol); // Get starting point of syscall table in memory
         unregister_kprobe(&kp);
     #elif LINUX_VERSION_CODE > KERNEL_VERSION(4, 4, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
-        hook->target = (unsigned long*)kallsyms_lookup_name(symbol); // find syscall table symlink and get table address
+        hook->target = (unsigned long*)kallsyms_lookup_name(symbol); // Find symbol link with kallsyms_lookup_name
     #else
         hook->target = NULL;
 #endif
