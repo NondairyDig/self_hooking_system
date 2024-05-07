@@ -5,13 +5,12 @@
 
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("self_mod");
+MODULE_DESCRIPTION("self_modn");
 MODULE_AUTHOR("NondairyDig");
-MODULE_VERSION("1.0");
+MODULE_VERSION("1.1");
 
 
 struct self_hook hook;
-
 
 static int hook_kill(struct pt_regs *regs){
     int sig = regs->si;
