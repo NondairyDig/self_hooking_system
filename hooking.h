@@ -107,17 +107,6 @@ static int resolve_hook_address(struct self_hook *hook, const char *symbol)
 ret_t trampoline(struct self_hook *hook, void* args) {
     ret_t returnValue;
 
-    // Insert the original prologue
-    asm volatile (
-        "push %%rax\n"
-        "mov %0, %%rax\n"
-        "mov (%%rax), %%rax\n"
-        "pop %%rax\n"
-        :
-        : "r" (hook->original_instructions)
-        : "%rax"
-    );
-
     // Call the rest of the original function and get the return value
     asm volatile (
         "call *%1\n"
