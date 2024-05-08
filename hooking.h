@@ -10,6 +10,7 @@ struct self_hook
     void *hook_func;
 
 	unsigned char original_instructions[5];
+    unsigned char hook_instructions[5];
 };
 
 typedef union { // A generic return type to handle return values of various functions.
@@ -21,6 +22,7 @@ typedef union { // A generic return type to handle return values of various func
     void* p;
 } ret_t;
 
+typedef ret_t (*func_ptr_t)(void*);
 
 static void disable_page_protection(void) {
     unsigned long value;
@@ -55,6 +57,7 @@ static int self_hook_function(struct self_hook *hook){
     unsigned long relative_address = (unsigned long)hook->hook_func - (unsigned long)hook->target - 5;
     memcpy(&jmp_instruction[1], &relative_address, 4);
     memcpy(hook->target, jmp_instruction, 5);
+    memcpy(hook->hook_instructions, jmp_instruction, 5);
 
     enable_page_protection();
 
@@ -100,7 +103,7 @@ static int resolve_hook_address(struct self_hook *hook, const char *symbol)
 	return 1;
 }
 
-
+// can't allocate executable memory!! :(.
 ret_t trampoline(struct self_hook *hook, void* args) {
     ret_t returnValue;
 
@@ -124,5 +127,27 @@ ret_t trampoline(struct self_hook *hook, void* args) {
         : "%rax"
     );
 
+    return returnValue;
+}
+
+
+static ret_t trampoline_option_1(struct self_hook *hook, void* args) {
+    ret_t returnValue;
+    disable_page_protection();
+    memcpy(hook->target, hook->original_instructions, 5);
+    enable_page_protection();
+    // Call the rest of the original function and get the return value
+    // Define a function pointer type that matches the signature of the function you're hooking
+    
+
+    // Cast hook->target to the function pointer type
+    func_ptr_t func_ptr = (func_ptr_t)hook->target;
+
+    // Call the function through the function pointer and store the return value
+    returnValue = func_ptr(args);
+
+    disable_page_protection();
+    memcpy(hook->target, hook->hook_instructions, 5);
+    enable_page_protection();
     return returnValue;
 }

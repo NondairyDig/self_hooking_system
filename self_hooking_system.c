@@ -5,7 +5,7 @@
 
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("self_modn");
+MODULE_DESCRIPTION("self_mod");
 MODULE_AUTHOR("NondairyDig");
 MODULE_VERSION("1.1");
 
