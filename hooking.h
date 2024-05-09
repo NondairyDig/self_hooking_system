@@ -104,7 +104,7 @@ static int resolve_hook_address(struct self_hook *hook, const char *symbol)
 }
 
 // can't allocate executable memory!! :(.
-ret_t trampoline(struct self_hook *hook, void* args) {
+static ret_t trampoline(struct self_hook *hook, void* args) {
     ret_t returnValue;
 
     // Call the rest of the original function and get the return value
@@ -139,4 +139,22 @@ static ret_t trampoline_option_1(struct self_hook *hook, void* args) {
     memcpy(hook->target, hook->hook_instructions, 5);
     enable_page_protection();
     return returnValue;
+}
+
+// Executable function.... == Replaceable....
+static ret_t trampoline_option_2(struct self_hook *hook, void* args) {
+    asm volatile (
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+    );
 }
