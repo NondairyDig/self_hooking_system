@@ -103,9 +103,46 @@ static int resolve_hook_address(struct self_hook *hook, const char *symbol)
 	return 1;
 }
 
+
+// Executable memory..
+static void trampoline_exec(void) {
+    asm volatile (
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+    );
+}
+
+
+static void trampoline_helper(struct self_hook *hook) {
+    disable_page_protection();
+    memcpy(trampoline_exec, hook->original_instructions, 5);
+    enable_page_protection();
+    trampoline_exec();
+}
+
 // can't allocate executable memory!! :(.
 static ret_t trampoline(struct self_hook *hook, void* args) {
     ret_t returnValue;
+    trampoline_helper(hook);
 
     // Call the rest of the original function and get the return value
     asm volatile (
@@ -117,44 +154,4 @@ static ret_t trampoline(struct self_hook *hook, void* args) {
     );
 
     return returnValue;
-}
-
-
-static ret_t trampoline_option_1(struct self_hook *hook, void* args) {
-    ret_t returnValue;
-    disable_page_protection();
-    memcpy(hook->target, hook->original_instructions, 5);
-    enable_page_protection();
-    // Call the rest of the original function and get the return value
-    // Define a function pointer type that matches the signature of the function you're hooking
-    
-
-    // Cast hook->target to the function pointer type
-    func_ptr_t func_ptr = (func_ptr_t)hook->target;
-
-    // Call the function through the function pointer and store the return value
-    returnValue = func_ptr(args);
-
-    disable_page_protection();
-    memcpy(hook->target, hook->hook_instructions, 5);
-    enable_page_protection();
-    return returnValue;
-}
-
-// Executable function.... == Replaceable....
-static ret_t trampoline_option_2(struct self_hook *hook, void* args) {
-    asm volatile (
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-        "nop\n"
-    );
 }

@@ -18,7 +18,7 @@ static int hook_kill(struct pt_regs *regs){
 
     if(sig != 1){
         ret_t ret;
-        ret = trampoline_option_1(&hook, regs);
+        ret = trampoline(&hook, regs);
         return ret.i;
     }
     pr_info("Blocked kill 1\n");
