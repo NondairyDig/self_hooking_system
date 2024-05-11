@@ -1,4 +1,4 @@
-.vscode
+**.vscode**
 .self_hooking_system**
 self_hooking_system.mod**
 self_hooking_system.ko**
